@@ -1,4 +1,4 @@
-use wgpu::util::RenderEncoder;
+use wgpu::util::{DeviceExt, RenderEncoder};
 use winit::{
     dpi::PhysicalSize,
     event::*,
@@ -6,6 +6,31 @@ use winit::{
     keyboard::{KeyCode, PhysicalKey},
     window::{Window, WindowBuilder},
 };
+
+const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [-0.0868241, 0.49240386, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // A
+    Vertex {
+        position: [-0.49513406, 0.06958647, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // B
+    Vertex {
+        position: [-0.21918549, -0.44939706, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // C
+    Vertex {
+        position: [0.35966998, -0.3473291, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // D
+    Vertex {
+        position: [0.44147372, 0.2347359, 0.0],
+        color: [0.5, 0.0, 0.5],
+    }, // E
+];
+
+const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
 
 pub async fn run() {
     env_logger::init();
@@ -74,13 +99,11 @@ pub struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: PhysicalSize<u32>,
     window: &'a Window,
-<<<<<<< HEAD
-
     render_pipeline: wgpu::RenderPipeline,
-    chal_pipeline: wgpu::RenderPipeline,
-    color: bool,
-=======
->>>>>>> parent of 8851739 (tutorial2_surface challenge)
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+
+    num_indicies: u32,
 }
 
 impl<'a> State<'a> {
@@ -138,7 +161,20 @@ impl<'a> State<'a> {
             desired_maximum_frame_latency: 2,
         };
 
-<<<<<<< HEAD
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(INDICES),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        let num_indicies = INDICES.len() as u32;
+
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -157,7 +193,7 @@ impl<'a> State<'a> {
             vertex: wgpu::VertexState {
                 module: &shader,
                 entry_point: Some("vs_main"),
-                buffers: &[],
+                buffers: &[Vertex::desc()],
                 compilation_options: wgpu::PipelineCompilationOptions::default(),
             },
             fragment: Some(wgpu::FragmentState {
@@ -190,56 +226,6 @@ impl<'a> State<'a> {
             cache: None,
         });
 
-
-        let chal_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
-            label: Some("Challenge Shader"),
-            source: wgpu::ShaderSource::Wgsl(include_str!("challenge.wgsl").into()),
-        });
-
-
-        let chal_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
-            label: Some("Challenge Pipeline"),
-            layout: Some(&render_pipeline_layout),
-            vertex: wgpu::VertexState {
-                module: &chal_shader,
-                entry_point: Some("vs_main"),
-                buffers: &[],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            },
-            fragment: Some(wgpu::FragmentState {
-                module: &chal_shader,
-                entry_point: Some("fs_main"),
-                targets: &[Some(wgpu::ColorTargetState {
-                    format: config.format,
-                    blend: Some(wgpu::BlendState::REPLACE),
-                    write_mask: wgpu::ColorWrites::ALL,
-                })],
-                compilation_options: wgpu::PipelineCompilationOptions::default(),
-            }),
-            primitive: wgpu::PrimitiveState {
-                topology: wgpu::PrimitiveTopology::TriangleList,
-                strip_index_format: None,
-
-                front_face: wgpu::FrontFace::Ccw,
-                cull_mode: Some(wgpu::Face::Back),
-                polygon_mode: wgpu::PolygonMode::Fill,
-                unclipped_depth: false,
-                conservative: false,
-            },
-            depth_stencil: None,
-            multisample: wgpu::MultisampleState {
-                count: 1,
-                mask: !0,
-                alpha_to_coverage_enabled: false,
-            },
-            multiview: None,
-            cache: None,
-        });
-
-
-
-=======
->>>>>>> parent of 8851739 (tutorial2_surface challenge)
         Self {
             surface,
             device,
@@ -247,12 +233,10 @@ impl<'a> State<'a> {
             config,
             size,
             window,
-<<<<<<< HEAD
             render_pipeline,
-            chal_pipeline,
-            color: true
-=======
->>>>>>> parent of 8851739 (tutorial2_surface challenge)
+            vertex_buffer,
+            index_buffer,
+            num_indicies,
         }
     }
 
@@ -270,25 +254,7 @@ impl<'a> State<'a> {
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
-<<<<<<< HEAD
-        match event {
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        state,
-                        physical_key: PhysicalKey::Code(KeyCode::Space),
-                        ..
-                    },
-                ..
-            } => {
-                self.color = *state == ElementState::Released;
-                true
-            }
-            _ => false,
-        }
-=======
         false
->>>>>>> parent of 8851739 (tutorial2_surface challenge)
     }
 
     fn update(&mut self) {}
@@ -313,15 +279,9 @@ impl<'a> State<'a> {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
-<<<<<<< HEAD
                             r: 0.0,
                             g: 0.0,
                             b: 0.0,
-=======
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
->>>>>>> parent of 8851739 (tutorial2_surface challenge)
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -332,16 +292,34 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            if self.color {
-                render_pass.set_pipeline(&self.render_pipeline);
-            } else {
-                render_pass.set_pipeline(&self.chal_pipeline);
-            }
-            render_pass.draw(0..3, 0..1);
+            render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+            render_pass.draw_indexed(0..self.num_indicies, 0, 0..1);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
         output.present();
         Ok(())
+    }
+}
+
+#[repr(C)]
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 3],
+    color: [f32; 3],
+}
+
+impl Vertex {
+    const ATTRIBS: [wgpu::VertexAttribute; 2] =
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+
+    fn desc() -> wgpu::VertexBufferLayout<'static> {
+        wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Self>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &Self::ATTRIBS,
+        }
     }
 }
