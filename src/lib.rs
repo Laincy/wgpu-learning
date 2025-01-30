@@ -7,7 +7,7 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-const VERTICES: &[Vertex] = &[
+const PENTA_VERTS: &[Vertex] = &[
     Vertex {
         position: [-0.0868241, 0.49240386, 0.0],
         color: [0.5, 0.0, 0.5],
@@ -30,7 +30,67 @@ const VERTICES: &[Vertex] = &[
     }, // E
 ];
 
-const INDICES: &[u16] = &[0, 1, 4, 1, 2, 4, 2, 3, 4];
+#[rustfmt::skip]
+const PENTA_INDS: &[u16] = &[
+    0, 1, 4, 
+    1, 2, 4, 
+    2, 3, 4
+];
+
+const DECA_VERTS: &[Vertex] = &[
+    Vertex {
+        position: [0.0, 0.5, 0.0],
+        color: [0.5, 0.0, 0.5],
+    },
+    Vertex {
+        position: [-0.29389263, 0.4045085, 0.0],
+        color: [0.5, 0.0, 0.5],
+    },
+    Vertex {
+        position: [-0.47552826, 0.1545085, 0.0],
+        color: [0.5, 0.0, 0.5],
+    },
+    Vertex {
+        position: [-0.47552826, -0.1545085, 0.0],
+        color: [0.5, 0.0, 0.5],
+    },
+    Vertex {
+        position: [-0.29389263, -0.4045085, 0.0],
+        color: [0.5, 0.0, 0.5],
+    },
+    Vertex {
+        position: [0.0, -0.5, 0.0],
+        color: [0.5, 0.0, 0.5],
+    },
+    Vertex {
+        position: [0.29389263, -0.4045085, 0.0],
+        color: [0.5, 0.0, 0.5],
+    },
+    Vertex {
+        position: [0.47552826, -0.1545085, 0.0],
+        color: [0.5, 0.0, 0.5],
+    },
+    Vertex {
+        position: [0.47552826, 0.1545085, 0.0],
+        color: [0.5, 0.0, 0.5],
+    },
+    Vertex {
+        position: [0.29389263, 0.4045085, 0.0],
+        color: [0.5, 0.0, 0.5],
+    },
+];
+
+#[rustfmt::skip]
+const DECA_INDS: &[u16] = &[
+    0, 1, 9,
+    1, 2, 9,
+    2, 8, 9,
+    2, 3, 8,
+    3, 7, 8,
+    3, 4, 7,
+    4, 6, 7,
+    4, 5, 6
+];
 
 pub async fn run() {
     env_logger::init();
@@ -100,10 +160,16 @@ pub struct State<'a> {
     size: PhysicalSize<u32>,
     window: &'a Window,
     render_pipeline: wgpu::RenderPipeline,
-    vertex_buffer: wgpu::Buffer,
-    index_buffer: wgpu::Buffer,
 
-    num_indicies: u32,
+    shape: bool,
+
+    penta_vertex_buffer: wgpu::Buffer,
+    penta_index_buffer: wgpu::Buffer,
+    penta_indicies: u32,
+
+    deca_vertex_buffer: wgpu::Buffer,
+    deca_index_buffer: wgpu::Buffer,
+    deca_indicies: u32,
 }
 
 impl<'a> State<'a> {
@@ -161,20 +227,6 @@ impl<'a> State<'a> {
             desired_maximum_frame_latency: 2,
         };
 
-        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(VERTICES),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(INDICES),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        let num_indicies = INDICES.len() as u32;
-
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -226,6 +278,34 @@ impl<'a> State<'a> {
             cache: None,
         });
 
+        let penta_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Pentagon Vertex Buffer"),
+            contents: bytemuck::cast_slice(PENTA_VERTS),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let penta_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Pentagon Index Buffer"),
+            contents: bytemuck::cast_slice(PENTA_INDS),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        let penta_indicies = PENTA_INDS.len() as u32;
+
+        let deca_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(DECA_VERTS),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+
+        let deca_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Index Buffer"),
+            contents: bytemuck::cast_slice(DECA_INDS),
+            usage: wgpu::BufferUsages::INDEX,
+        });
+
+        let deca_indicies = DECA_INDS.len() as u32;
+
         Self {
             surface,
             device,
@@ -234,9 +314,16 @@ impl<'a> State<'a> {
             size,
             window,
             render_pipeline,
-            vertex_buffer,
-            index_buffer,
-            num_indicies,
+
+            shape: true,
+
+            penta_vertex_buffer,
+            penta_index_buffer,
+            penta_indicies,
+
+            deca_vertex_buffer,
+            deca_index_buffer,
+            deca_indicies,
         }
     }
 
@@ -254,7 +341,21 @@ impl<'a> State<'a> {
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
-        false
+        match event {
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        physical_key: PhysicalKey::Code(KeyCode::Space),
+                        state,
+                        ..
+                    },
+                ..
+            } => {
+                self.shape = *state == ElementState::Released;
+                true
+            }
+            _ => false,
+        }
     }
 
     fn update(&mut self) {}
@@ -293,9 +394,18 @@ impl<'a> State<'a> {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
-            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
-            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-            render_pass.draw_indexed(0..self.num_indicies, 0, 0..1);
+
+            if self.shape {
+                render_pass.set_vertex_buffer(0, self.penta_vertex_buffer.slice(..));
+                render_pass
+                    .set_index_buffer(self.penta_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                render_pass.draw_indexed(0..self.penta_indicies, 0, 0..1);
+            } else {
+                render_pass.set_vertex_buffer(0, self.deca_vertex_buffer.slice(..));
+                render_pass
+                    .set_index_buffer(self.deca_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
+                render_pass.draw_indexed(0..self.deca_indicies, 0, 0..1);
+            }
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
