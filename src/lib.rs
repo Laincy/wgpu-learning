@@ -73,6 +73,8 @@ pub struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: PhysicalSize<u32>,
     window: &'a Window,
+
+    clear_color: wgpu::Color,
 }
 
 impl<'a> State<'a> {
@@ -130,6 +132,13 @@ impl<'a> State<'a> {
             desired_maximum_frame_latency: 2,
         };
 
+        let clear_color = wgpu::Color {
+            r: 0.0,
+            g: 0.0,
+            b: 0.0,
+            a: 1.0
+        };
+
         Self {
             surface,
             device,
@@ -137,6 +146,7 @@ impl<'a> State<'a> {
             config,
             size,
             window,
+            clear_color,
         }
     }
 
@@ -154,7 +164,15 @@ impl<'a> State<'a> {
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
-        false
+        match event {
+            WindowEvent::CursorMoved{device_id: _, position: pos} => {
+                self.clear_color.r = pos.x / self.size.width as f64;
+                self.clear_color.b = pos.y / self.size.height as f64;
+                
+                true
+            },
+            _ => false
+        }
     }
 
     fn update(&mut self) {}
@@ -178,12 +196,7 @@ impl<'a> State<'a> {
                     view: &view,
                     resolve_target: None,
                     ops: wgpu::Operations {
-                        load: wgpu::LoadOp::Clear(wgpu::Color {
-                            r: 0.1,
-                            g: 0.2,
-                            b: 0.3,
-                            a: 1.0,
-                        }),
+                        load: wgpu::LoadOp::Clear(self.clear_color),
                         store: wgpu::StoreOp::Store,
                     },
                 })],
