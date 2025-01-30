@@ -1,9 +1,10 @@
 {
-  description = "WGPU Experiments";
+  description = "WGPU experiments";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/release-24.11";
     flake-utils.url = "github:numtide/flake-utils";
+
     crane.url = "github:ipetkov/crane";
 
     fenix = {
@@ -28,7 +29,9 @@
 
         craneLib = crane.mkLib pkgs;
 
-        reqs = with pkgs; [
+        #LD_LIBRARY_PATH = "${lib.makeLibraryPath nativeBuildInputs}";
+
+        reqlibs = with pkgs; [
           wayland
           libxkbcommon
           libGL
@@ -53,7 +56,7 @@
             cargoArtifacts = craneLib.buildDepsOnly commonArgs;
 
             postInstall = ''
-              wrapProgram $out/bin/wgpu_test --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath reqs}
+              wrapProgram $out/bin/wgpu_test --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath reqlibs}
             '';
           });
       in {
@@ -64,7 +67,7 @@
 
           packages = [toolchain];
 
-          LD_LIBRARY_PATH = "${lib.makeLibraryPath reqs}";
+          LD_LIBRARY_PATH = "${lib.makeLibraryPath reqlibs}";
           RUST_BACKTRACE = "1";
         };
 

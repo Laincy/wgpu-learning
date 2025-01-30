@@ -74,7 +74,13 @@ pub struct State<'a> {
     config: wgpu::SurfaceConfiguration,
     size: PhysicalSize<u32>,
     window: &'a Window,
+<<<<<<< HEAD
+
     render_pipeline: wgpu::RenderPipeline,
+    chal_pipeline: wgpu::RenderPipeline,
+    color: bool,
+=======
+>>>>>>> parent of 8851739 (tutorial2_surface challenge)
 }
 
 impl<'a> State<'a> {
@@ -132,6 +138,7 @@ impl<'a> State<'a> {
             desired_maximum_frame_latency: 2,
         };
 
+<<<<<<< HEAD
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -183,6 +190,56 @@ impl<'a> State<'a> {
             cache: None,
         });
 
+
+        let chal_shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("Challenge Shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("challenge.wgsl").into()),
+        });
+
+
+        let chal_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: Some("Challenge Pipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &chal_shader,
+                entry_point: Some("vs_main"),
+                buffers: &[],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &chal_shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(wgpu::ColorTargetState {
+                    format: config.format,
+                    blend: Some(wgpu::BlendState::REPLACE),
+                    write_mask: wgpu::ColorWrites::ALL,
+                })],
+                compilation_options: wgpu::PipelineCompilationOptions::default(),
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleList,
+                strip_index_format: None,
+
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                polygon_mode: wgpu::PolygonMode::Fill,
+                unclipped_depth: false,
+                conservative: false,
+            },
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false,
+            },
+            multiview: None,
+            cache: None,
+        });
+
+
+
+=======
+>>>>>>> parent of 8851739 (tutorial2_surface challenge)
         Self {
             surface,
             device,
@@ -190,7 +247,12 @@ impl<'a> State<'a> {
             config,
             size,
             window,
+<<<<<<< HEAD
             render_pipeline,
+            chal_pipeline,
+            color: true
+=======
+>>>>>>> parent of 8851739 (tutorial2_surface challenge)
         }
     }
 
@@ -208,7 +270,25 @@ impl<'a> State<'a> {
     }
 
     fn input(&mut self, event: &WindowEvent) -> bool {
+<<<<<<< HEAD
+        match event {
+            WindowEvent::KeyboardInput {
+                event:
+                    KeyEvent {
+                        state,
+                        physical_key: PhysicalKey::Code(KeyCode::Space),
+                        ..
+                    },
+                ..
+            } => {
+                self.color = *state == ElementState::Released;
+                true
+            }
+            _ => false,
+        }
+=======
         false
+>>>>>>> parent of 8851739 (tutorial2_surface challenge)
     }
 
     fn update(&mut self) {}
@@ -233,9 +313,15 @@ impl<'a> State<'a> {
                     resolve_target: None,
                     ops: wgpu::Operations {
                         load: wgpu::LoadOp::Clear(wgpu::Color {
+<<<<<<< HEAD
                             r: 0.0,
                             g: 0.0,
                             b: 0.0,
+=======
+                            r: 0.1,
+                            g: 0.2,
+                            b: 0.3,
+>>>>>>> parent of 8851739 (tutorial2_surface challenge)
                             a: 1.0,
                         }),
                         store: wgpu::StoreOp::Store,
@@ -246,7 +332,11 @@ impl<'a> State<'a> {
                 timestamp_writes: None,
             });
 
-            render_pass.set_pipeline(&self.render_pipeline);
+            if self.color {
+                render_pass.set_pipeline(&self.render_pipeline);
+            } else {
+                render_pass.set_pipeline(&self.chal_pipeline);
+            }
             render_pass.draw(0..3, 0..1);
         }
 
