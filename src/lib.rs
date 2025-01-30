@@ -1,4 +1,7 @@
-use wgpu::util::{DeviceExt, RenderEncoder};
+mod texture;
+
+use anyhow::Context;
+use wgpu::util::DeviceExt;
 use winit::{
     dpi::PhysicalSize,
     event::*,
@@ -7,89 +10,21 @@ use winit::{
     window::{Window, WindowBuilder},
 };
 
-const PENTA_VERTS: &[Vertex] = &[
-    Vertex {
-        position: [-0.0868241, 0.49240386, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // A
-    Vertex {
-        position: [-0.49513406, 0.06958647, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // B
-    Vertex {
-        position: [-0.21918549, -0.44939706, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // C
-    Vertex {
-        position: [0.35966998, -0.3473291, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // D
-    Vertex {
-        position: [0.44147372, 0.2347359, 0.0],
-        color: [0.5, 0.0, 0.5],
-    }, // E
+
+const VERTICES: &[Vertex] = &[
+    Vertex { position: [-0.0868241, 0.49240386, 0.0], tex_coords: [0.4131759, 0.00759614], }, // A
+    Vertex { position: [-0.49513406, 0.06958647, 0.0], tex_coords: [0.0048659444, 0.43041354], }, // B
+    Vertex { position: [-0.21918549, -0.44939706, 0.0], tex_coords: [0.28081453, 0.949397], }, // C
+    Vertex { position: [0.35966998, -0.3473291, 0.0], tex_coords: [0.85967, 0.84732914], }, // D
+    Vertex { position: [0.44147372, 0.2347359, 0.0], tex_coords: [0.9414737, 0.2652641], }, // E
 ];
 
+
 #[rustfmt::skip]
-const PENTA_INDS: &[u16] = &[
+const INDICIES: &[u16] = &[
     0, 1, 4, 
     1, 2, 4, 
     2, 3, 4
-];
-
-const DECA_VERTS: &[Vertex] = &[
-    Vertex {
-        position: [0.0, 0.5, 0.0],
-        color: [0.5, 0.0, 0.5],
-    },
-    Vertex {
-        position: [-0.29389263, 0.4045085, 0.0],
-        color: [0.5, 0.0, 0.5],
-    },
-    Vertex {
-        position: [-0.47552826, 0.1545085, 0.0],
-        color: [0.5, 0.0, 0.5],
-    },
-    Vertex {
-        position: [-0.47552826, -0.1545085, 0.0],
-        color: [0.5, 0.0, 0.5],
-    },
-    Vertex {
-        position: [-0.29389263, -0.4045085, 0.0],
-        color: [0.5, 0.0, 0.5],
-    },
-    Vertex {
-        position: [0.0, -0.5, 0.0],
-        color: [0.5, 0.0, 0.5],
-    },
-    Vertex {
-        position: [0.29389263, -0.4045085, 0.0],
-        color: [0.5, 0.0, 0.5],
-    },
-    Vertex {
-        position: [0.47552826, -0.1545085, 0.0],
-        color: [0.5, 0.0, 0.5],
-    },
-    Vertex {
-        position: [0.47552826, 0.1545085, 0.0],
-        color: [0.5, 0.0, 0.5],
-    },
-    Vertex {
-        position: [0.29389263, 0.4045085, 0.0],
-        color: [0.5, 0.0, 0.5],
-    },
-];
-
-#[rustfmt::skip]
-const DECA_INDS: &[u16] = &[
-    0, 1, 9,
-    1, 2, 9,
-    2, 8, 9,
-    2, 3, 8,
-    3, 7, 8,
-    3, 4, 7,
-    4, 6, 7,
-    4, 5, 6
 ];
 
 pub async fn run() {
@@ -161,15 +96,12 @@ pub struct State<'a> {
     window: &'a Window,
     render_pipeline: wgpu::RenderPipeline,
 
-    shape: bool,
+    vertex_buffer: wgpu::Buffer,
+    index_buffer: wgpu::Buffer,
+    num_indicies: u32,
 
-    penta_vertex_buffer: wgpu::Buffer,
-    penta_index_buffer: wgpu::Buffer,
-    penta_indicies: u32,
-
-    deca_vertex_buffer: wgpu::Buffer,
-    deca_index_buffer: wgpu::Buffer,
-    deca_indicies: u32,
+    diffuse_bind_group: wgpu::BindGroup,
+    diffuse_texture: texture::Texture,
 }
 
 impl<'a> State<'a> {
@@ -227,6 +159,47 @@ impl<'a> State<'a> {
             desired_maximum_frame_latency: 2,
         };
 
+        let diffuse_texture = texture::Texture::from_bytes(&device, &queue, include_bytes!("happy-tree.png"), "happy-tree.png").unwrap();
+
+
+        let texture_bind_group_layout =
+            device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
+                entries: &[
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 0,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Texture {
+                            multisampled: false,
+                            view_dimension: wgpu::TextureViewDimension::D2,
+                            sample_type: wgpu::TextureSampleType::Float { filterable: true },
+                        },
+                        count: None,
+                    },
+                    wgpu::BindGroupLayoutEntry {
+                        binding: 1,
+                        visibility: wgpu::ShaderStages::FRAGMENT,
+                        ty: wgpu::BindingType::Sampler(wgpu::SamplerBindingType::Filtering),
+                        count: None,
+                    },
+                ],
+                label: Some("texture_bind_group_layout"),
+            });
+
+        let diffuse_bind_group = device.create_bind_group(&wgpu::BindGroupDescriptor {
+            layout: &texture_bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&diffuse_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&diffuse_texture.sampler),
+                },
+            ],
+            label: Some("diffuse_bind_group"),
+        });
+
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Shader"),
             source: wgpu::ShaderSource::Wgsl(include_str!("shader.wgsl").into()),
@@ -235,7 +208,7 @@ impl<'a> State<'a> {
         let render_pipeline_layout =
             device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
                 label: Some("Render Pipeline Layout"),
-                bind_group_layouts: &[],
+                bind_group_layouts: &[&texture_bind_group_layout],
                 push_constant_ranges: &[],
             });
 
@@ -277,34 +250,19 @@ impl<'a> State<'a> {
             multiview: None,
             cache: None,
         });
-
-        let penta_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Pentagon Vertex Buffer"),
-            contents: bytemuck::cast_slice(PENTA_VERTS),
-            usage: wgpu::BufferUsages::VERTEX,
-        });
-
-        let penta_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
-            label: Some("Pentagon Index Buffer"),
-            contents: bytemuck::cast_slice(PENTA_INDS),
-            usage: wgpu::BufferUsages::INDEX,
-        });
-
-        let penta_indicies = PENTA_INDS.len() as u32;
-
-        let deca_vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Vertex Buffer"),
-            contents: bytemuck::cast_slice(DECA_VERTS),
+            contents: bytemuck::cast_slice(VERTICES),
             usage: wgpu::BufferUsages::VERTEX,
         });
 
-        let deca_index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+        let index_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
             label: Some("Index Buffer"),
-            contents: bytemuck::cast_slice(DECA_INDS),
+            contents: bytemuck::cast_slice(INDICIES),
             usage: wgpu::BufferUsages::INDEX,
         });
 
-        let deca_indicies = DECA_INDS.len() as u32;
+        let num_indicies = INDICIES.len() as u32;
 
         Self {
             surface,
@@ -315,15 +273,12 @@ impl<'a> State<'a> {
             window,
             render_pipeline,
 
-            shape: true,
+            vertex_buffer,
+            index_buffer,
+            num_indicies,
 
-            penta_vertex_buffer,
-            penta_index_buffer,
-            penta_indicies,
-
-            deca_vertex_buffer,
-            deca_index_buffer,
-            deca_indicies,
+            diffuse_bind_group,
+            diffuse_texture
         }
     }
 
@@ -340,22 +295,8 @@ impl<'a> State<'a> {
         }
     }
 
-    fn input(&mut self, event: &WindowEvent) -> bool {
-        match event {
-            WindowEvent::KeyboardInput {
-                event:
-                    KeyEvent {
-                        physical_key: PhysicalKey::Code(KeyCode::Space),
-                        state,
-                        ..
-                    },
-                ..
-            } => {
-                self.shape = *state == ElementState::Released;
-                true
-            }
-            _ => false,
-        }
+    fn input(&mut self, _event: &WindowEvent) -> bool {
+        false
     }
 
     fn update(&mut self) {}
@@ -394,18 +335,11 @@ impl<'a> State<'a> {
             });
 
             render_pass.set_pipeline(&self.render_pipeline);
+            render_pass.set_bind_group(0, &self.diffuse_bind_group, &[]);
+            render_pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+            render_pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
 
-            if self.shape {
-                render_pass.set_vertex_buffer(0, self.penta_vertex_buffer.slice(..));
-                render_pass
-                    .set_index_buffer(self.penta_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                render_pass.draw_indexed(0..self.penta_indicies, 0, 0..1);
-            } else {
-                render_pass.set_vertex_buffer(0, self.deca_vertex_buffer.slice(..));
-                render_pass
-                    .set_index_buffer(self.deca_index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-                render_pass.draw_indexed(0..self.deca_indicies, 0, 0..1);
-            }
+            render_pass.draw_indexed(0..self.num_indicies, 0, 0..1);
         }
 
         self.queue.submit(std::iter::once(encoder.finish()));
@@ -418,12 +352,12 @@ impl<'a> State<'a> {
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 struct Vertex {
     position: [f32; 3],
-    color: [f32; 3],
+    tex_coords: [f32; 2],
 }
 
 impl Vertex {
     const ATTRIBS: [wgpu::VertexAttribute; 2] =
-        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x3];
+        wgpu::vertex_attr_array![0 => Float32x3, 1 => Float32x2];
 
     fn desc() -> wgpu::VertexBufferLayout<'static> {
         wgpu::VertexBufferLayout {
