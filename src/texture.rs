@@ -1,6 +1,5 @@
 use anyhow::Result;
 use image::GenericImageView;
-use wgpu::{naga::ImageDimension, SurfaceConfiguration};
 
 pub struct Texture {
     #[allow(unused)]

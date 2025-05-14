@@ -42,7 +42,7 @@
         ];
 
         commonArgs = {
-          src = craneLib.cleanCargoSource ./.;
+          src = ./.;
           strictDeps = true;
 
           nativeBuildInputs = with pkgs; [makeWrapper];
